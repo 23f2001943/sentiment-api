@@ -1,0 +1,78 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from openai import OpenAI
+import os
+
+# ----------------------------
+# Create FastAPI app
+# ----------------------------
+app = FastAPI()
+
+# ----------------------------
+# OpenAI client
+# ----------------------------
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
+# ----------------------------
+# Request body structure
+# ----------------------------
+class CommentRequest(BaseModel):
+    comment: str
+
+# ----------------------------
+# Response structure
+# ----------------------------
+class SentimentResponse(BaseModel):
+    sentiment: str
+    rating: int
+
+# ----------------------------
+# JSON Schema for OpenAI
+# ----------------------------
+sentiment_schema = {
+    "type": "object",
+    "properties": {
+        "sentiment": {
+            "type": "string",
+            "enum": ["positive", "negative", "neutral"]
+        },
+        "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+        }
+    },
+    "required": ["sentiment", "rating"],
+    "additionalProperties": False
+}
+
+# ----------------------------
+# API endpoint
+# ----------------------------
+@app.post("/comment", response_model=SentimentResponse)
+def analyze_comment(request: CommentRequest):
+    if not request.comment.strip():
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+
+    try:
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {"role": "system", "content": "Analyze sentiment and return structured JSON only."},
+                {"role": "user", "content": request.comment}
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "sentiment_analysis",
+                    "schema": sentiment_schema
+                }
+            }
+        )
+
+        return response.output_parsed
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Sentiment analysis failed")
