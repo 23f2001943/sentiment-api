@@ -2,11 +2,19 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
 import os
+from fastapi.middleware.cors import CORSMiddleware
 
 # ----------------------------
 # Create FastAPI app
 # ----------------------------
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ----------------------------
 # OpenAI client
@@ -76,3 +84,7 @@ def analyze_comment(request: CommentRequest):
 
     except Exception:
         raise HTTPException(status_code=500, detail="Sentiment analysis failed")
+    
+@app.get("/comment")
+def comment_health():
+    return {"status": "comment endpoint alive"}
